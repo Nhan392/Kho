@@ -23,6 +23,9 @@
         th {
             background-color: #f2f2f2;
         }
+        .low-stock {
+            background-color: #ff0000;
+        }
     </style>
 </head>
 <body>
@@ -59,14 +62,14 @@
         <button type="submit">Cập nhật số lượng đã bán</button>
     </form>
 
+    <h2>Tìm kiếm sản phẩm</h2>
+    <input type="text" id="searchInput" placeholder="Nhập tên sản phẩm để tìm kiếm">
+
     <h2>Danh sách sản phẩm</h2>
     <table id="productTable">
         <thead>
             <tr>
                 <th>Tên sản phẩm</th>
-                <th>Số lượng nhập</th>
-                <th>Số lượng nhập thêm</th>
-                <th>Số lượng đã bán</th>
                 <th>Số lượng hiện tại</th>
                 <th>Hành động</th>
             </tr>
@@ -92,24 +95,24 @@
         const products = loadProductsFromLocalStorage();
 
         // Cập nhật bảng sản phẩm
-        function updateProductTable() {
+        function updateProductTable(filteredProducts = products) {
             const tableBody = document.getElementById('productTable').getElementsByTagName('tbody')[0];
             tableBody.innerHTML = '';
 
-            for (const [name, details] of Object.entries(products)) {
+            for (const [name, details] of Object.entries(filteredProducts)) {
                 const newRow = tableBody.insertRow();
                 const nameCell = newRow.insertCell(0);
-                const initialImportCell = newRow.insertCell(1);
-                const addImportCell = newRow.insertCell(2);
-                const soldCell = newRow.insertCell(3);
-                const currentCell = newRow.insertCell(4);
-                const actionCell = newRow.insertCell(5);
+                const currentCell = newRow.insertCell(1);
+                const actionCell = newRow.insertCell(2);
+
+                const currentQuantity = details.initialImport + details.addImport - details.soldQuantity;
 
                 nameCell.textContent = name;
-                initialImportCell.textContent = details.initialImport;
-                addImportCell.textContent = details.addImport;
-                soldCell.textContent = details.soldQuantity;
-                currentCell.textContent = details.initialImport + details.addImport - details.soldQuantity;
+                currentCell.textContent = currentQuantity;
+
+                if (currentQuantity < 3) {
+                    newRow.classList.add('low-stock');
+                }
 
                 const deleteButton = document.createElement('button');
                 deleteButton.textContent = 'Xóa';
@@ -195,6 +198,15 @@
             saveProductsToLocalStorage(products);
             updateProductTable();
             document.getElementById('soldQuantityForm').reset();
+        });
+
+        // Xử lý sự kiện tìm kiếm sản phẩm
+        document.getElementById('searchInput').addEventListener('input', function(event) {
+            const searchTerm = event.target.value.toLowerCase();
+            const filteredProducts = Object.fromEntries(
+                Object.entries(products).filter(([name]) => name.toLowerCase().includes(searchTerm))
+            );
+            updateProductTable(filteredProducts);
         });
 
         // Khởi động trang với danh sách sản phẩm đã lưu
