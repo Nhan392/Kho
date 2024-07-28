@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý sản phẩm kho</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Quản lý sản phẩm kho</h1>
+
+    <h2>Thêm sản phẩm mới</h2>
+    <form id="productForm">
+        <label for="productName">Tên sản phẩm:</label>
+        <input type="text" id="productName" name="productName" required>
+        <label for="productQuantity">Số lượng nhập:</label>
+        <input type="number" id="productQuantity" name="productQuantity" required>
+        <button type="submit">Thêm sản phẩm</button>
+    </form>
+
+    <h2>Nhập thêm số lượng sản phẩm</h2>
+    <form id="addQuantityForm">
+        <label for="addProductName">Tên sản phẩm:</label>
+        <select id="addProductName" name="addProductName" required>
+            <!-- Danh sách sản phẩm sẽ được thêm vào đây -->
+        </select>
+        <label for="addQuantity">Số lượng nhập thêm:</label>
+        <input type="number" id="addQuantity" name="addQuantity" required>
+        <button type="submit">Nhập thêm</button>
+    </form>
+
+    <h2>Cập nhật số lượng đã bán</h2>
+    <form id="soldQuantityForm">
+        <label for="soldProductName">Tên sản phẩm:</label>
+        <select id="soldProductName" name="soldProductName" required>
+            <!-- Danh sách sản phẩm sẽ được thêm vào đây -->
+        </select>
+        <label for="soldQuantity">Số lượng đã bán:</label>
+        <input type="number" id="soldQuantity" name="soldQuantity" required>
+        <button type="submit">Cập nhật số lượng đã bán</button>
+    </form>
+
+    <h2>Danh sách sản phẩm</h2>
+    <table id="productTable">
+        <thead>
+            <tr>
+                <th>Tên sản phẩm</th>
+                <th>Số lượng nhập</th>
+                <th>Số lượng nhập thêm</th>
+                <th>Số lượng đã bán</th>
+                <th>Số lượng hiện tại</th>
+                <th>Hành động</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Danh sách sản phẩm sẽ hiển thị ở đây -->
+        </tbody>
+    </table>
+
+    <script>
+        // Hàm lưu dữ liệu vào Local Storage
+        function saveProductsToLocalStorage(products) {
+            localStorage.setItem('products', JSON.stringify(products));
+        }
+
+        // Hàm lấy dữ liệu từ Local Storage
+        function loadProductsFromLocalStorage() {
+            const products = localStorage.getItem('products');
+            return products ? JSON.parse(products) : {};
+        }
+
+        // Khởi tạo danh sách sản phẩm từ Local Storage
+        const products = loadProductsFromLocalStorage();
+
+        // Cập nhật bảng sản phẩm
+        function updateProductTable() {
+            const tableBody = document.getElementById('productTable').getElementsByTagName('tbody')[0];
+            tableBody.innerHTML = '';
+
+            for (const [name, details] of Object.entries(products)) {
+                const newRow = tableBody.insertRow();
+                const nameCell = newRow.insertCell(0);
+                const initialImportCell = newRow.insertCell(1);
+                const addImportCell = newRow.insertCell(2);
+                const soldCell = newRow.insertCell(3);
+                const currentCell = newRow.insertCell(4);
+                const actionCell = newRow.insertCell(5);
+
+                nameCell.textContent = name;
+                initialImportCell.textContent = details.initialImport;
+                addImportCell.textContent = details.addImport;
+                soldCell.textContent = details.soldQuantity;
+                currentCell.textContent = details.initialImport + details.addImport - details.soldQuantity;
+
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'Xóa';
+                deleteButton.onclick = () => {
+                    delete products[name];
+                    saveProductsToLocalStorage(products);
+                    updateProductTable();
+                    updateProductDropdowns();
+                };
+                actionCell.appendChild(deleteButton);
+            }
+        }
+
+        // Cập nhật dropdown danh sách sản phẩm
+        function updateProductDropdowns() {
+            const addProductNameSelect = document.getElementById('addProductName');
+            const soldProductNameSelect = document.getElementById('soldProductName');
+
+            addProductNameSelect.innerHTML = '';
+            soldProductNameSelect.innerHTML = '';
+
+            for (const name of Object.keys(products)) {
+                const option1 = document.createElement('option');
+                option1.value = name;
+                option1.textContent = name;
+
+                const option2 = document.createElement('option');
+                option2.value = name;
+                option2.textContent = name;
+
+                addProductNameSelect.appendChild(option1);
+                soldProductNameSelect.appendChild(option2);
+            }
+        }
+
+        // Xử lý sự kiện khi thêm sản phẩm mới
+        document.getElementById('productForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const productName = document.getElementById('productName').value;
+            const productQuantity = parseInt(document.getElementById('productQuantity').value);
+
+            if (products[productName]) {
+                products[productName].initialImport += productQuantity;
+            } else {
+                products[productName] = { initialImport: productQuantity, addImport: 0, soldQuantity: 0 };
+            }
+
+            saveProductsToLocalStorage(products);
+            updateProductTable();
+            updateProductDropdowns();
+            document.getElementById('productForm').reset();
+        });
+
+        // Xử lý sự kiện khi nhập thêm số lượng sản phẩm
+        document.getElementById('addQuantityForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const productName = document.getElementById('addProductName').value;
+            const addQuantity = parseInt(document.getElementById('addQuantity').value);
+
+            if (products[productName]) {
+                products[productName].addImport += addQuantity;
+            } else {
+                alert('Sản phẩm không tồn tại trong kho.');
+            }
+
+            saveProductsToLocalStorage(products);
+            updateProductTable();
+            document.getElementById('addQuantityForm').reset();
+        });
+
+        // Xử lý sự kiện khi cập nhật số lượng đã bán
+        document.getElementById('soldQuantityForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const productName = document.getElementById('soldProductName').value;
+            const soldQuantity = parseInt(document.getElementById('soldQuantity').value);
+
+            if (products[productName]) {
+                products[productName].soldQuantity += soldQuantity;
+            } else {
+                alert('Sản phẩm không tồn tại trong kho.');
+            }
+
+            saveProductsToLocalStorage(products);
+            updateProductTable();
+            document.getElementById('soldQuantityForm').reset();
+        });
+
+        // Khởi động trang với danh sách sản phẩm đã lưu
+        updateProductTable();
+        updateProductDropdowns();
+    </script>
+</body>
+</html>
