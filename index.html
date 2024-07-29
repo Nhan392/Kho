@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quản lý sản phẩm kho</title>
-<style>
+    <style>
         body {
             font-family: 'Arial', sans-serif;
             margin: 20px;
@@ -14,6 +14,7 @@
         h1 {
             text-align: center;
             color: #007BFF;
+            margin-bottom: 30px;
         }
         h2 {
             color: #333;
@@ -45,6 +46,7 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 16px;
+            margin-top: 10px;
         }
         button:hover {
             background-color: #0056b3;
@@ -67,17 +69,48 @@
             background-color: #f2f2f2;
         }
         .low-stock {
-            background-color: #ff0000;
+            background-color: #ffcccc;
         }
         .search-container {
             margin-bottom: 20px;
+            position: relative;
         }
         .search-container input {
-            width: calc(100% - 22px);
+            width: 100%;
             padding: 10px;
-            margin: 0;
             border: 1px solid #ccc;
             border-radius: 4px;
+        }
+        .suggestions {
+            position: absolute;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-top: none;
+            z-index: 1000;
+            width: 100%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .suggestion-item {
+            padding: 10px;
+            cursor: pointer;
+        }
+        .suggestion-item:hover {
+            background-color: #f2f2f2;
+        }
+        .inline-form {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .inline-form input {
+            width: 60%;
+        }
+        .inline-form button {
+            padding: 5px 10px;
+            font-size: 14px;
+        }
+        .actions button {
+            margin-left: 5px;
         }
     </style>
 </head>
@@ -93,30 +126,11 @@
         <button type="submit">Thêm sản phẩm</button>
     </form>
 
-    <h2>Nhập thêm số lượng sản phẩm</h2>
-    <form id="addQuantityForm">
-        <label for="addProductName">Tên sản phẩm:</label>
-        <select id="addProductName" name="addProductName" required>
-            <!-- Danh sách sản phẩm sẽ được thêm vào đây -->
-        </select>
-        <label for="addQuantity">Số lượng nhập thêm:</label>
-        <input type="number" id="addQuantity" name="addQuantity" required>
-        <button type="submit">Nhập thêm</button>
-    </form>
-
-    <h2>Cập nhật số lượng đã bán</h2>
-    <form id="soldQuantityForm">
-        <label for="soldProductName">Tên sản phẩm:</label>
-        <select id="soldProductName" name="soldProductName" required>
-            <!-- Danh sách sản phẩm sẽ được thêm vào đây -->
-        </select>
-        <label for="soldQuantity">Số lượng đã bán:</label>
-        <input type="number" id="soldQuantity" name="soldQuantity" required>
-        <button type="submit">Cập nhật số lượng đã bán</button>
-    </form>
-
     <h2>Tìm kiếm sản phẩm</h2>
-    <input type="text" id="searchInput" placeholder="Nhập tên sản phẩm để tìm kiếm">
+    <div class="search-container">
+        <input type="text" id="searchInput" placeholder="Nhập tên sản phẩm để tìm kiếm">
+        <div id="suggestions" class="suggestions"></div>
+    </div>
 
     <h2>Danh sách sản phẩm</h2>
     <table id="productTable">
@@ -124,6 +138,8 @@
             <tr>
                 <th>Tên sản phẩm</th>
                 <th>Số lượng hiện tại</th>
+                <th>Thêm số lượng</th>
+                <th>Đã bán</th>
                 <th>Hành động</th>
             </tr>
         </thead>
@@ -133,39 +149,85 @@
     </table>
 
     <script>
-        // Hàm lưu dữ liệu vào Local Storage
         function saveProductsToLocalStorage(products) {
             localStorage.setItem('products', JSON.stringify(products));
         }
 
-        // Hàm lấy dữ liệu từ Local Storage
         function loadProductsFromLocalStorage() {
             const products = localStorage.getItem('products');
             return products ? JSON.parse(products) : {};
         }
 
-        // Khởi tạo danh sách sản phẩm từ Local Storage
         const products = loadProductsFromLocalStorage();
 
-        // Cập nhật bảng sản phẩm
         function updateProductTable(filteredProducts = products) {
             const tableBody = document.getElementById('productTable').getElementsByTagName('tbody')[0];
             tableBody.innerHTML = '';
 
-            for (const [name, details] of Object.entries(filteredProducts)) {
+            const sortedProducts = Object.entries(filteredProducts).sort(([, a], [, b]) => {
+                const aCurrentQuantity = a.initialImport + a.addImport - a.soldQuantity;
+                const bCurrentQuantity = b.initialImport + b.addImport - b.soldQuantity;
+                return aCurrentQuantity < 5 && bCurrentQuantity >= 5 ? -1 : bCurrentQuantity < 5 && aCurrentQuantity >= 5 ? 1 : 0;
+            });
+
+            for (const [name, details] of sortedProducts) {
                 const newRow = tableBody.insertRow();
                 const nameCell = newRow.insertCell(0);
                 const currentCell = newRow.insertCell(1);
-                const actionCell = newRow.insertCell(2);
+                const addCell = newRow.insertCell(2);
+                const soldCell = newRow.insertCell(3);
+                const actionCell = newRow.insertCell(4);
 
                 const currentQuantity = details.initialImport + details.addImport - details.soldQuantity;
 
                 nameCell.textContent = name;
                 currentCell.textContent = currentQuantity;
 
-                if (currentQuantity < 3) {
+                if (currentQuantity < 5) {
                     newRow.classList.add('low-stock');
                 }
+
+                const addForm = document.createElement('form');
+                addForm.classList.add('inline-form');
+                const addInput = document.createElement('input');
+                addInput.type = 'number';
+                addInput.min = 0;
+                addInput.placeholder = 'Thêm số lượng';
+                addInput.required = true;
+                addForm.appendChild(addInput);
+                const addButton = document.createElement('button');
+                addButton.textContent = 'Thêm';
+                addButton.type = 'submit';
+                addForm.appendChild(addButton);
+                addForm.onsubmit = (e) => {
+                    e.preventDefault();
+                    const addQuantity = parseInt(addInput.value);
+                    products[name].addImport += addQuantity;
+                    saveProductsToLocalStorage(products);
+                    updateProductTable();
+                };
+                addCell.appendChild(addForm);
+
+                const soldForm = document.createElement('form');
+                soldForm.classList.add('inline-form');
+                const soldInput = document.createElement('input');
+                soldInput.type = 'number';
+                soldInput.min = 0;
+                soldInput.placeholder = 'Đã bán';
+                soldInput.required = true;
+                soldForm.appendChild(soldInput);
+                const soldButton = document.createElement('button');
+                soldButton.textContent = 'Cập nhật';
+                soldButton.type = 'submit';
+                soldForm.appendChild(soldButton);
+                soldForm.onsubmit = (e) => {
+                    e.preventDefault();
+                    const soldQuantity = parseInt(soldInput.value);
+                    products[name].soldQuantity += soldQuantity;
+                    saveProductsToLocalStorage(products);
+                    updateProductTable();
+                };
+                soldCell.appendChild(soldForm);
 
                 const deleteButton = document.createElement('button');
                 deleteButton.textContent = 'Xóa';
@@ -173,35 +235,11 @@
                     delete products[name];
                     saveProductsToLocalStorage(products);
                     updateProductTable();
-                    updateProductDropdowns();
                 };
                 actionCell.appendChild(deleteButton);
             }
         }
 
-        // Cập nhật dropdown danh sách sản phẩm
-        function updateProductDropdowns() {
-            const addProductNameSelect = document.getElementById('addProductName');
-            const soldProductNameSelect = document.getElementById('soldProductName');
-
-            addProductNameSelect.innerHTML = '';
-            soldProductNameSelect.innerHTML = '';
-
-            for (const name of Object.keys(products)) {
-                const option1 = document.createElement('option');
-                option1.value = name;
-                option1.textContent = name;
-
-                const option2 = document.createElement('option');
-                option2.value = name;
-                option2.textContent = name;
-
-                addProductNameSelect.appendChild(option1);
-                soldProductNameSelect.appendChild(option2);
-            }
-        }
-
-        // Xử lý sự kiện khi thêm sản phẩm mới
         document.getElementById('productForm').addEventListener('submit', function(event) {
             event.preventDefault();
             const productName = document.getElementById('productName').value;
@@ -215,56 +253,37 @@
 
             saveProductsToLocalStorage(products);
             updateProductTable();
-            updateProductDropdowns();
             document.getElementById('productForm').reset();
         });
 
-        // Xử lý sự kiện khi nhập thêm số lượng sản phẩm
-        document.getElementById('addQuantityForm').addEventListener('submit', function(event) {
-            event.preventDefault();
-            const productName = document.getElementById('addProductName').value;
-            const addQuantity = parseInt(document.getElementById('addQuantity').value);
-
-            if (products[productName]) {
-                products[productName].addImport += addQuantity;
-            } else {
-                alert('Sản phẩm không tồn tại trong kho.');
-            }
-
-            saveProductsToLocalStorage(products);
-            updateProductTable();
-            document.getElementById('addQuantityForm').reset();
-        });
-
-        // Xử lý sự kiện khi cập nhật số lượng đã bán
-        document.getElementById('soldQuantityForm').addEventListener('submit', function(event) {
-            event.preventDefault();
-            const productName = document.getElementById('soldProductName').value;
-            const soldQuantity = parseInt(document.getElementById('soldQuantity').value);
-
-            if (products[productName]) {
-                products[productName].soldQuantity += soldQuantity;
-            } else {
-                alert('Sản phẩm không tồn tại trong kho.');
-            }
-
-            saveProductsToLocalStorage(products);
-            updateProductTable();
-            document.getElementById('soldQuantityForm').reset();
-        });
-
-        // Xử lý sự kiện tìm kiếm sản phẩm
         document.getElementById('searchInput').addEventListener('input', function(event) {
             const searchTerm = event.target.value.toLowerCase();
             const filteredProducts = Object.fromEntries(
                 Object.entries(products).filter(([name]) => name.toLowerCase().includes(searchTerm))
             );
             updateProductTable(filteredProducts);
+            showSuggestions(filteredProducts);
         });
 
-        // Khởi động trang với danh sách sản phẩm đã lưu
+        function showSuggestions(filteredProducts) {
+            const suggestions = document.getElementById('suggestions');
+            suggestions.innerHTML = '';
+            const productNames = Object.keys(filteredProducts);
+            productNames.forEach(name => {
+                const suggestionItem = document.createElement('div');
+                suggestionItem.textContent = name;
+                suggestionItem.classList.add('suggestion-item');
+                suggestionItem.onclick = () => {
+                    document.getElementById('searchInput').value = name;
+                    suggestions.innerHTML = '';
+                    const selectedProduct = { [name]: filteredProducts[name] };
+                    updateProductTable(selectedProduct);
+                };
+                suggestions.appendChild(suggestionItem);
+            });
+        }
+
         updateProductTable();
-        updateProductDropdowns();
     </script>
 </body>
 </html>
